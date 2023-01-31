@@ -61,7 +61,14 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
   late final List<AnimationController> destinationFaders = [];
-  late final List<Widget> destinationViews;
+
+  List<Widget> destinationViews(List<Widget> branchNavigators) =>
+      branchNavigators.mapIndexed((int i, Widget child) {
+        return FadeTransition(
+            opacity: destinationFaders[i]
+                .drive(CurveTween(curve: Curves.fastOutSlowIn)),
+            child: child);
+      }).toList();
 
   AnimationController buildFaderController() {
     final AnimationController controller = AnimationController(
@@ -77,19 +84,13 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (destinationFaders.isNotEmpty) {
-      return;
+    if (destinationFaders.isEmpty) {
+      final List<Widget> children =
+          StatefulShellRouteState.of(context).children;
+      destinationFaders.addAll(List<AnimationController>.generate(
+          children.length, (int index) => buildFaderController()).toList());
+      destinationFaders[0].value = 1.0;
     }
-    final List<Widget> children = StatefulShellRouteState.of(context).children;
-    destinationFaders.addAll(List<AnimationController>.generate(
-        children.length, (int index) => buildFaderController()).toList());
-    destinationFaders[0].value = 1.0;
-    destinationViews = children.mapIndexed((int index, Widget child) {
-      return FadeTransition(
-          opacity: destinationFaders[index]
-              .drive(CurveTween(curve: Curves.fastOutSlowIn)),
-          child: child);
-    }).toList();
   }
 
   @override
@@ -105,14 +106,14 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
     final StatefulShellRouteState shellState = StatefulShellRouteState.of(ctx);
     final Iterable<Destination> destinations = shellState.branchStates
         .map((branchState) => branchState.branch as Destination);
+    final List<Widget> children = destinationViews(shellState.children);
 
     return Scaffold(
       body: SafeArea(
         top: false,
         child: Stack(
           fit: StackFit.expand,
-          children: List<Widget>.generate(destinations.length, (int index) {
-            final Widget view = destinationViews[index];
+          children: children.mapIndexed((int index, Widget view) {
             if (index == shellState.currentIndex) {
               destinationFaders[index].forward();
               return Offstage(offstage: false, child: view);
@@ -123,7 +124,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
               }
               return Offstage(child: view);
             }
-          }),
+          }).toList(),
         ),
       ),
       bottomNavigationBar: NavigationBar(
