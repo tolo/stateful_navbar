@@ -19,9 +19,9 @@ class StatefulNavbarApp extends StatelessWidget {
       String title, IconData icon, MaterialColor color) {
     final String path = '/${title.toLowerCase()}';
     return Destination(title, icon, color, path, routes: <RouteBase>[
-      _route(path, const RootPage(), [
-        _route('list', const ListPage(), [
-          _route('text', const TextPage(), []),
+      _route(path, RootPage(destinationTitle: title), [
+        _route('list', ListPage(destinationTitle: title), [
+          _route('text', TextPage(destinationTitle: title), []),
         ]),
       ])
     ]);
@@ -37,9 +37,10 @@ class StatefulNavbarApp extends StatelessWidget {
           _destination('Orange', Icons.school, Colors.orange),
           _destination('Blue', Icons.flight, Colors.blue),
         ],
-        builder: (BuildContext context, GoRouterState state, Widget child) {
-          return const Home();
-        },
+        navigatorContainerBuilder: (BuildContext context, StatefulNavigationShell navigationShell,
+            List<Widget> children) => Home(navigationShell: navigationShell, children: children),
+        builder: (BuildContext context, GoRouterState state, StatefulNavigationShell navigationShell) =>
+          navigationShell,
       ),
     ],
   );
@@ -53,7 +54,10 @@ class StatefulNavbarApp extends StatelessWidget {
 }
 
 class Home extends StatefulWidget {
-  const Home({super.key});
+  const Home({super.key, required this.navigationShell, required this.children});
+
+  final StatefulNavigationShell navigationShell;
+  final List<Widget> children;
 
   @override
   State<Home> createState() => _HomeState();
@@ -61,6 +65,10 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
   late final List<AnimationController> destinationFaders = [];
+
+  StatefulNavigationShell get navigationShell => widget.navigationShell;
+  Iterable<Destination> get destinations => navigationShell.route.branches
+      .map((branch) => branch as Destination);
 
   List<Widget> destinationViews(List<Widget> branchNavigators) =>
       branchNavigators.mapIndexed((int i, Widget child) {
@@ -85,10 +93,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (destinationFaders.isEmpty) {
-      final List<Widget> children =
-          StatefulShellRouteState.of(context).children;
       destinationFaders.addAll(List<AnimationController>.generate(
-          children.length, (int index) => buildFaderController()).toList());
+          widget.children.length, (int index) => buildFaderController()).toList());
       destinationFaders[0].value = 1.0;
     }
   }
@@ -103,10 +109,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
 
   @override
   Widget build(BuildContext ctx) {
-    final StatefulShellRouteState shellState = StatefulShellRouteState.of(ctx);
-    final Iterable<Destination> destinations = shellState.branchStates
-        .map((branchState) => branchState.branch as Destination);
-    final List<Widget> children = destinationViews(shellState.children);
+    final List<Widget> children = destinationViews(widget.children);
 
     return Scaffold(
       body: SafeArea(
@@ -114,7 +117,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
         child: Stack(
           fit: StackFit.expand,
           children: children.mapIndexed((int index, Widget view) {
-            if (index == shellState.currentIndex) {
+            if (index == navigationShell.currentIndex) {
               destinationFaders[index].forward();
               return Offstage(offstage: false, child: view);
             } else {
@@ -128,8 +131,8 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
         ),
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: shellState.currentIndex,
-        onDestinationSelected: (int index) => shellState.goBranch(index: index),
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: (int index) => navigationShell.goBranch(index),
         destinations: destinations.map((Destination destination) {
           return NavigationDestination(
             icon: Icon(destination.icon, color: destination.color),
@@ -144,7 +147,7 @@ class _HomeState extends State<Home> with TickerProviderStateMixin<Home> {
 class Destination extends StatefulShellBranch {
   Destination(this.title, this.icon, this.color, this.path,
       {required super.routes})
-      : super(defaultLocation: path, preload: true);
+      : super(initialLocation: path);
 
   final String title;
   final IconData icon;
@@ -153,7 +156,9 @@ class Destination extends StatefulShellBranch {
 }
 
 class RootPage extends StatelessWidget {
-  const RootPage({super.key});
+  const RootPage({super.key, required this.destinationTitle});
+
+  final String destinationTitle;
 
   Widget _buildDialog(BuildContext context, Destination destination) {
     return AlertDialog(
@@ -171,8 +176,7 @@ class RootPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Destination destination =
-        StatefulShellBranchState.of(context).branch as Destination;
+    final Destination destination = StatefulNavigationShell.of(context).destination(destinationTitle);
     final TextStyle headlineSmall = Theme.of(context).textTheme.headlineSmall!;
     final ButtonStyle buttonStyle = ElevatedButton.styleFrom(
       backgroundColor: destination.color,
@@ -257,12 +261,13 @@ class RootPage extends StatelessWidget {
 }
 
 class ListPage extends StatelessWidget {
-  const ListPage({super.key});
+  const ListPage({super.key, required this.destinationTitle});
+
+  final String destinationTitle;
 
   @override
   Widget build(BuildContext context) {
-    final Destination destination =
-        StatefulShellBranchState.of(context).branch as Destination;
+    final Destination destination = StatefulNavigationShell.of(context).destination(destinationTitle);
     const int itemCount = 50;
     final ButtonStyle buttonStyle = OutlinedButton.styleFrom(
       foregroundColor: destination.color,
@@ -302,7 +307,9 @@ class ListPage extends StatelessWidget {
 }
 
 class TextPage extends StatefulWidget {
-  const TextPage({super.key});
+  const TextPage({super.key, required this.destinationTitle});
+
+  final String destinationTitle;
 
   @override
   State<TextPage> createState() => _TextPageState();
@@ -325,8 +332,7 @@ class _TextPageState extends State<TextPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Destination destination =
-        StatefulShellBranchState.of(context).branch as Destination;
+    final Destination destination = StatefulNavigationShell.of(context).destination(widget.destinationTitle);
     final ThemeData theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -354,4 +360,10 @@ class _TextPageState extends State<TextPage> {
       ),
     );
   }
+}
+
+/// Helper extension on StatefulNavigationShellState to get the current Destination.
+extension StatefulNavigationShellStateHelper on StatefulNavigationShellState {
+  Destination destination(String title) => route.branches.whereType<Destination>()
+      .firstWhere((e) => e.title == title);
 }

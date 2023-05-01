@@ -85,10 +85,10 @@ packages:
     description:
       path: "packages/go_router"
       ref: nested-persistent-navigation
-      resolved-ref: f9a26084d264b0a0b98211f168455232e96698b9
+      resolved-ref: "0f36623ccb04fed143863f4610fff185c55558b1"
       url: "https://github.com/tolo/flutter_packages.git"
     source: git
-    version: "6.1.0"
+    version: "7.1.0"
   js:
     dependency: transitive
     description:
@@ -207,5 +207,5 @@ packages:
     source: hosted
     version: "2.1.4"
 sdks:
-  dart: ">=2.19.0 <4.0.0"
+  dart: ">=2.19.0 <3.0.0"
   flutter: ">=3.3.0"
